@@ -12,6 +12,7 @@ from flask_login import current_user, login_user, logout_user, login_required
 from FlaskWebProject.models import User, Post
 import msal
 import uuid
+from typing import Optional, List, Any
 
 imageSourceUrl = 'https://'+ app.config['BLOB_ACCOUNT']  + '.blob.core.windows.net/' + app.config['BLOB_CONTAINER']  + '/'
 
@@ -110,19 +111,96 @@ def logout():
 
     return redirect(url_for('login'))
 
-def _load_cache():
-    # TODO: Load the cache from `msal`, if it exists
-    cache = None
+
+def _load_cache() -> msal.SerializableTokenCache:
+    """
+    Loads the token cache from the session, if it exists.
+
+    Returns:
+        msal.SerializableTokenCache: An instance of SerializableTokenCache containing 
+                                      the loaded token cache, or an empty cache if none exists.
+    """
+    # Create a new instance of SerializableTokenCache
+    cache = msal.SerializableTokenCache()
+    
+    # Retrieve the token cache from the session
+    token_cache = session.get('token_cache')
+    
+    # If a token cache exists in the session, deserialize it
+    if token_cache:
+        cache.deserialize(token_cache)
+    
     return cache
 
-def _save_cache(cache):
-    # TODO: Save the cache, if it has changed
-    pass
 
-def _build_msal_app(cache=None, authority=None):
-    # TODO: Return a ConfidentialClientApplication
-    return None
 
-def _build_auth_url(authority=None, scopes=None, state=None):
-    # TODO: Return the full Auth Request URL with appropriate Redirect URI
-    return None
+
+def _save_cache(cache: Any) -> None:
+    """
+    Saves the token cache to the session if it has changed.
+
+    Parameters:
+        cache (Any): The token cache to be saved. It should have a method `has_state_changed`
+                     to check if it has changed and a method `serialize` to get the serialized
+                     representation of the cache.
+
+    Returns:
+        None
+    """
+    # Check if the cache state has changed and save it to the session
+    if cache.has_state_changed:
+        session['token_cache'] = cache.serialize()
+
+
+
+def _build_msal_app(cache: Optional[msal.TokenCache] = None, authority: Optional[str] = None) -> msal.ConfidentialClientApplication:
+    """
+    Builds and returns an instance of MSAL's ConfidentialClientApplication.
+
+    Parameters:
+        cache (msal.TokenCache, optional): Token cache to store access tokens. Defaults to None.
+        authority (str, optional): The authority to authenticate against. If not provided, uses the default from Config.
+
+    Returns:
+        msal.ConfidentialClientApplication: An MSAL application instance used for acquiring tokens.
+    """
+    # Use the provided authority or fallback to the default from the configuration
+    authority_url = authority or Config.AUTHORITY
+
+    # Return an instance of ConfidentialClientApplication
+    return msal.ConfidentialClientApplication(
+        authority=authority_url,
+        client_id=Config.CLIENT_ID,
+        client_credential=Config.CLIENT_SECRET,
+        token_cache=cache
+    )
+
+
+
+def _build_auth_url(authority: Optional[str] = None, scopes: Optional[List[str]] = None, state: Optional[str] = None) -> str:
+    """
+    Builds the authorization URL using the MSAL app.
+
+    Parameters:
+        authority (str): The authority to authenticate against.
+        scopes (list of str): The requested API permissions (scopes).
+        state (str): An optional state value to maintain state between request and callback.
+
+    Returns:
+        str: The authorization request URL.
+    """
+    # Generate the state if not provided
+    state_value = state or str(uuid.uuid4())
+
+    # Set default scopes if not provided
+    scopes_list = scopes or []
+
+    # Build the MSAL app and generate the authorization request URL
+    msal_app = _build_msal_app(authority=authority)
+    
+    auth_url = msal_app.get_authorization_request_url(
+        scopes=scopes_list,
+        state=state_value,
+        redirect_uri=url_for('authorized', _external=True, _scheme='https')
+    )
+    return auth_url
