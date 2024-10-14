@@ -66,10 +66,20 @@ def login():
     form = LoginForm()
     if form.validate_on_submit():
         user = User.query.filter_by(username=form.username.data).first()
-        if user is None or not user.check_password(form.password.data):
-            flash('Invalid username or password')
+        if user and user.password_hash == '-': 
+            # OAuth2 users are not allowed to use password
+            flash('Not Allowed! Sign in with your Microsoft Account')
             return redirect(url_for('login'))
+        elif user is None or not user.check_password(form.password.data):
+            flash('Invalid username or password')
+            # Log for unsuccessful login attempt:
+            app.logger.warning("Invalid login attempt!")
+            return redirect(url_for('login'))
+
         login_user(user, remember=form.remember_me.data)
+        # Log for successful login:
+        app.logger.info(f"{user.username} logged in successfully")
+        flash(f'Welcome {user.username} !')
         next_page = request.args.get('next')
         if not next_page or url_parse(next_page).netloc != '':
             next_page = url_for('home')
@@ -78,7 +88,7 @@ def login():
     auth_url = _build_auth_url(scopes=Config.SCOPE, state=session["state"])
     return render_template('login.html', title='Sign In', form=form, auth_url=auth_url)
 
-@app.route(Config.REDIRECT_PATH)  # Its absolute URL must match your app's redirect_uri set in AAD
+@app.route(Config.REDIRECT_PATH)  
 def authorized():
     if request.args.get('state') != session.get("state"):
         return redirect(url_for("home"))  # No-OP. Goes back to Index page
@@ -86,15 +96,21 @@ def authorized():
         return render_template("auth_error.html", result=request.args)
     if request.args.get('code'):
         cache = _load_cache()
-        # TODO: Acquire a token from a built msal app, along with the appropriate redirect URI
-        result = None
-        if "error" in result:
-            return render_template("auth_error.html", result=result)
+        result = _build_msal_app(cache=cache).acquire_token_by_authorization_code(
+            code=request.args['code'],
+            scopes=Config.SCOPE,
+            redirect_uri=url_for('authorized', _external=True, _scheme="https"))
         session["user"] = result.get("id_token_claims")
-        # Note: In a real app, we'd use the 'name' property from session["user"] below
-        # Here, we'll use the admin username for anyone who is authenticated by MS
-        user = User.query.filter_by(username="admin").first()
+        # Get user name from result, preferred_username is email
+        username = session["user"].get('preferred_username').split('@')[0] # Preprocess the email and use it for username
+        user = User.query.filter_by(username=username).first()
+        if not user:
+            new_user = User(username=username,password_hash='-')
+            db.session.add(new_user)
+            db.session.commit()
+            user = User.query.filter_by(username=username).first()
         login_user(user)
+        flash(f'Welcome {user.username} !')
         _save_cache(cache)
     return redirect(url_for('home'))
 
