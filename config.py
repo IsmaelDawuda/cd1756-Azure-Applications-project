@@ -14,8 +14,21 @@ class Config(object):
     SQL_USER_NAME = os.environ.get('SQL_USER_NAME') or 'udacityadmin'
     SQL_PASSWORD = os.environ.get('SQL_PASSWORD') or 'Password19891989'
 
+<<<<<<< HEAD
     # Below URI may need some adjustments for driver version, based on your OS, if running locally
     SQLALCHEMY_DATABASE_URI = 'mssql+pyodbc://' + SQL_USER_NAME + '@' + SQL_SERVER + ':' + SQL_PASSWORD + '@' + SQL_SERVER + ':1433/' + SQL_DATABASE + '?driver=ODBC+Driver+17+for+SQL+Server'
+=======
+    SQL_SERVER = os.environ.get('SQL_SERVER') or 'ENTER_SQL_SERVER_NAME'
+    SQL_DATABASE = os.environ.get('SQL_DATABASE') or 'ENTER_SQL_DB_NAME'
+    SQL_USER_NAME = os.environ.get('SQL_USER_NAME') or 'ENTER_SQL_SERVER_USERNAME'
+    SQL_PASSWORD = os.environ.get('SQL_PASSWORD') or 'ENTER_SQL_SERVER_PASSWORD'
+    # Below URI may need some adjustments for driver version, based on your OS, if running locally
+    SQLALCHEMY_DATABASE_URI = 'mssql+pyodbc://' + SQL_USER_NAME + '@' + SQL_SERVER + ':' + SQL_PASSWORD + '@' + SQL_SERVER + ':1433/' + SQL_DATABASE  + '?driver=ODBC+Driver+17+for+SQL+Server'
+    #For Local machine
+    #SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL")\
+    #    or 'sqlite:///'+os.path.join(basedir, 'app.db')
+    #SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://root:test@localhost/cms'
+>>>>>>> origin/main
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     ### Info for MS Authentication ###
@@ -30,6 +43,9 @@ class Config(object):
     SCOPE = ["User.Read"]  # Only need to read user profile for this app
 
     SESSION_TYPE = "filesystem"  # Token cache will be stored in server-side session
+<<<<<<< HEAD
 
     # Add LOG_DIRECTORY to specify where to store log files
     LOG_DIRECTORY = os.path.join(basedir, 'logs')  # Adjust the path as needed
+=======
+>>>>>>> origin/main
