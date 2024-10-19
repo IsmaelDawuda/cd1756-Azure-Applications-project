@@ -1,23 +1,35 @@
-"""
-The flask application package.
-"""
 import logging
 from flask import Flask
 from config import Config
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_session import Session
+import os
 
 app = Flask(__name__)
 app.config.from_object(Config)
-app.logger.setLevel(logging.WARNING)
-streamHandler = logging.StreamHandler()
-streamHandler.setLevel(logging.WARNING)
-app.logger.addHandler(streamHandler) 
 
+# Set up logging
+app.logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed logging
+log_file = os.path.join(Config.LOG_DIRECTORY, 'app.log')  # Ensure LOG_DIRECTORY is defined in your Config
+fileHandler = logging.FileHandler(log_file)
+fileHandler.setLevel(logging.WARNING)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+streamHandler = logging.StreamHandler()
+streamHandler.setFormatter(formatter)
+fileHandler.setFormatter(formatter)
+app.logger.addHandler(streamHandler)
+app.logger.addHandler(fileHandler)
+
+# Initialize extensions
 Session(app)
 db = SQLAlchemy(app)
 login = LoginManager(app)
 login.login_view = 'login'
 
+# Import views
 import FlaskWebProject.views
+
+# Ensure the app runs on port 8000
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8000)
